@@ -1,5 +1,5 @@
 use std::{
-    fs,
+    env, fs,
     io::{Read, Write},
     net::{TcpListener, TcpStream},
 };
@@ -20,6 +20,8 @@ enum ServerError {
     RequestError(#[from] RequestError),
     #[error("No user agent header")]
     UserAgentError,
+    #[error("File directory is invalid")]
+    InvalidFileDirectory,
 }
 
 fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
@@ -54,8 +56,13 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
                     response_body.len().to_string(),
                 );
             } else if other.starts_with("/files/") {
+                let file_base_path = env::args()
+                    .collect::<Vec<_>>()
+                    .get(2)
+                    .cloned()
+                    .ok_or(ServerError::InvalidFileDirectory)?;
                 let filename = other.replace("/files/", "");
-                let filepath = format!("/tmp/{}", filename);
+                let filepath = format!("{}{}", file_base_path, filename);
                 match fs::read_to_string(filepath) {
                     Ok(response_body) => {
                         response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
@@ -89,8 +96,9 @@ fn main() {
         match stream {
             Ok(mut _stream) => {
                 println!("accepted new connection");
-                if let Err(e) = handle_connection(_stream) {
-                    println!("{}", e);
+                let handle = std::thread::spawn(move || handle_connection(_stream));
+                if let Err(e) = handle.join() {
+                    println!("{:?}", e);
                 }
             }
             Err(e) => {
