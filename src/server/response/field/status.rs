@@ -6,6 +6,7 @@ pub enum StatusError {
 
 pub enum HttpStatus {
     Ok,
+    NotFound,
 }
 
 pub struct Status(HttpStatus);
@@ -18,12 +19,14 @@ impl Status {
     pub fn status_code(&self) -> u16 {
         match self.0 {
             HttpStatus::Ok => 200,
+            HttpStatus::NotFound => 404,
         }
     }
 
     pub fn status_line(&self) -> String {
         match self.0 {
             HttpStatus::Ok => "HTTP/1.1 200 OK".to_owned(),
+            HttpStatus::NotFound => "HTTP/1.1 404 Not Found".to_owned(),
         }
     }
 }
