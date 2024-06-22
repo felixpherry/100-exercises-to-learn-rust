@@ -8,6 +8,7 @@ pub enum StatusError {
 pub enum HttpStatus {
     Ok,
     NotFound,
+    Created,
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +23,7 @@ impl Status {
         match self.0 {
             HttpStatus::Ok => 200,
             HttpStatus::NotFound => 404,
+            HttpStatus::Created => 201,
         }
     }
 
@@ -29,6 +31,7 @@ impl Status {
         match self.0 {
             HttpStatus::Ok => "HTTP/1.1 200 OK".to_owned(),
             HttpStatus::NotFound => "HTTP/1.1 404 Not Found".to_owned(),
+            HttpStatus::Created => "HTTP/1.1 201 Created".to_owned(),
         }
     }
 }

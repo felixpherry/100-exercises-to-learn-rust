@@ -63,22 +63,29 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
                     .ok_or(ServerError::InvalidFileDirectory)?;
                 let filename = other.replace("/files/", "");
                 let filepath = format!("{}{}", file_base_path, filename);
-                match fs::read_to_string(filepath) {
-                    Ok(response_body) => {
-                        response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
-                        response.set_headers(
-                            "Content-Type".to_string(),
-                            "application/octet-stream".to_owned(),
-                        );
-                        response.set_headers(
-                            "Content-Length".to_string(),
-                            response_body.len().to_string(),
-                        );
+
+                match request.method() {
+                    server::request::RequestMethod::Get => match fs::read_to_string(filepath) {
+                        Ok(response_body) => {
+                            response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
+                            response.set_headers(
+                                "Content-Type".to_string(),
+                                "application/octet-stream".to_owned(),
+                            );
+                            response.set_headers(
+                                "Content-Length".to_string(),
+                                response_body.len().to_string(),
+                            );
+                        }
+                        Err(_) => response = Response::new(HttpStatus::NotFound, None),
+                    },
+                    server::request::RequestMethod::Post => {
+                        fs::write(filepath, request.body())?;
+                        response = Response::new(HttpStatus::Created, None);
                     }
-                    Err(_) => response = Response::new(HttpStatus::NotFound, None),
                 }
             } else {
-                response = Response::new(HttpStatus::NotFound, None)
+                response = Response::new(HttpStatus::NotFound, None);
             }
         }
     }

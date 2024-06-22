@@ -71,6 +71,10 @@ impl Request {
     pub fn headers(&self) -> HashMap<String, String> {
         self.headers.clone()
     }
+
+    pub fn body(&self) -> String {
+        self.body.clone()
+    }
 }
 
 impl TryFrom<&str> for Request {
