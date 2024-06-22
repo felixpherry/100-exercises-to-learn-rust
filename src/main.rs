@@ -1,4 +1,5 @@
 use std::{
+    fs,
     io::{Read, Write},
     net::{TcpListener, TcpStream},
 };
@@ -52,6 +53,23 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
                     "Content-Length".to_string(),
                     response_body.len().to_string(),
                 );
+            } else if other.starts_with("/files/") {
+                let filename = other.replace("/files/", "");
+                let filepath = format!("/tmp/{}", filename);
+                match fs::read_to_string(filepath) {
+                    Ok(response_body) => {
+                        response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
+                        response.set_headers(
+                            "Content-Type".to_string(),
+                            "application/octet-stream".to_owned(),
+                        );
+                        response.set_headers(
+                            "Content-Length".to_string(),
+                            response_body.len().to_string(),
+                        );
+                    }
+                    Err(_) => response = Response::new(HttpStatus::NotFound, None),
+                }
             } else {
                 response = Response::new(HttpStatus::NotFound, None)
             }
