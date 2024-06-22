@@ -21,7 +21,6 @@ impl TryFrom<&str> for RequestMethod {
 pub struct Request {
     method: RequestMethod,
     endpoint: String,
-    http_version: String,
     headers: HashMap<String, String>,
     body: String,
 }
@@ -46,13 +45,18 @@ impl Request {
             (*request_line_vec.get(0).ok_or(RequestError::ParseError)?).try_into()?;
 
         let endpoint = *request_line_vec.get(1).ok_or(RequestError::ParseError)?;
-        let http_version = *request_line_vec.get(2).ok_or(RequestError::ParseError)?;
+
+        let mut headers = HashMap::new();
+        for &header in request_vec.iter().skip(1).take(request_vec.len() - 2) {
+            let (k, v) = header.split_once(": ").ok_or(RequestError::ParseError)?;
+            headers.insert(k.to_lowercase().to_owned(), v.to_owned());
+        }
+
         Ok(Self {
             method: http_method,
             body: request_body.to_owned(),
             endpoint: endpoint.into(),
-            http_version: http_version.into(),
-            headers: HashMap::new(),
+            headers,
         })
     }
 
@@ -62,6 +66,10 @@ impl Request {
 
     pub fn endpoint(&self) -> String {
         self.endpoint.clone()
+    }
+
+    pub fn headers(&self) -> HashMap<String, String> {
+        self.headers.clone()
     }
 }
 

@@ -17,6 +17,8 @@ enum ServerError {
     ParseError(#[from] std::str::Utf8Error),
     #[error("Request error: {0}")]
     RequestError(#[from] RequestError),
+    #[error("No user agent header")]
+    UserAgentError,
 }
 
 fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
@@ -27,6 +29,20 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
     let mut response;
     match request.endpoint().as_str() {
         "/" => response = Response::new(HttpStatus::Ok, None),
+        "/user-agent" => {
+            let response_body = request
+                .headers()
+                .get("user-agent")
+                .ok_or(ServerError::UserAgentError)?
+                .to_owned();
+
+            response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
+            response.set_headers("Content-Type".to_string(), "text/plain".to_owned());
+            response.set_headers(
+                "Content-Length".to_string(),
+                response_body.len().to_string(),
+            );
+        }
         other => {
             if other.starts_with("/echo/") {
                 let response_body = other.replace("/echo/", "");
