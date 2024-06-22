@@ -4,11 +4,13 @@ pub enum StatusError {
     InvalidStatusCode,
 }
 
+#[derive(Debug, Clone)]
 pub enum HttpStatus {
     Ok,
     NotFound,
 }
 
+#[derive(Debug, Clone)]
 pub struct Status(HttpStatus);
 
 impl Status {

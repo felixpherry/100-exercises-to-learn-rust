@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 const CLRF: &str = "\r\n";
 
+#[derive(Debug, Clone)]
 pub struct Response {
     status: field::status::Status,
     headers: HashMap<String, String>,
@@ -12,12 +13,16 @@ pub struct Response {
 }
 
 impl Response {
-    pub fn new(status: HttpStatus) -> Self {
+    pub fn new(status: HttpStatus, body: Option<String>) -> Self {
         Self {
             status: status.into(),
             headers: HashMap::new(),
-            body: None,
+            body,
         }
+    }
+
+    pub fn set_headers(&mut self, key: String, value: String) {
+        self.headers.insert(key, value);
     }
 
     pub fn http_string(&self) -> String {
@@ -25,9 +30,9 @@ impl Response {
         let headers = self
             .headers
             .iter()
-            .map(|(k, v)| format!("{}: {}", k, v))
+            .map(|(k, v)| format!("{}: {}\r\n", k, v))
             .collect::<Vec<String>>()
-            .join(CLRF);
+            .join("");
 
         let body = self.body.clone().unwrap_or("".to_owned());
 

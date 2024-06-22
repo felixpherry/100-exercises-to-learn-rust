@@ -24,10 +24,22 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
     stream.read(&mut buffer)?;
     let http_string = std::str::from_utf8(&buffer)?.trim_end_matches("\0");
     let request: Request = http_string.try_into()?;
-    let response;
+    let mut response;
     match request.endpoint().as_str() {
-        "/" => response = Response::new(HttpStatus::Ok),
-        _ => response = Response::new(HttpStatus::NotFound),
+        "/" => response = Response::new(HttpStatus::Ok, None),
+        other => {
+            if other.starts_with("/echo/") {
+                let response_body = other.replace("/echo/", "");
+                response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
+                response.set_headers("Content-Type".to_string(), "text/plain".to_owned());
+                response.set_headers(
+                    "Content-Length".to_string(),
+                    response_body.len().to_string(),
+                );
+            } else {
+                response = Response::new(HttpStatus::NotFound, None)
+            }
+        }
     }
     stream.write(response.http_string().as_bytes())?;
     stream.flush()?;
