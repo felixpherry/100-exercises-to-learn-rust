@@ -25,6 +25,10 @@ impl Response {
         self.headers.insert(key, value);
     }
 
+    pub fn set_body(&mut self, body: Option<String>) {
+        self.body = body;
+    }
+
     pub fn http_string(&self) -> String {
         let status_line = self.status.status_line();
         let headers = self

@@ -4,6 +4,7 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
+use flate2::{write::GzEncoder, Compression};
 use server::{
     request::{Request, RequestError},
     response::Response,
@@ -22,6 +23,15 @@ enum ServerError {
     UserAgentError,
     #[error("File directory is invalid")]
     InvalidFileDirectory,
+    #[error("Compression error: {0}")]
+    CompressionError(#[from] flate2::CompressError),
+}
+
+fn handle_compression(compression_target: &str) -> Result<Vec<u8>, ServerError> {
+    let mut e = GzEncoder::new(Vec::new(), Compression::default());
+    e.write_all(compression_target.as_bytes())?;
+    let res = e.finish()?;
+    Ok(res)
 }
 
 fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
@@ -30,6 +40,7 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
     let http_string = std::str::from_utf8(&buffer)?.trim_end_matches("\0");
     let request: Request = http_string.try_into()?;
     let mut response;
+    let mut compressed_body = Vec::<u8>::new();
     match request.endpoint().as_str() {
         "/" => response = Response::new(HttpStatus::Ok, None),
         "/user-agent" => {
@@ -49,6 +60,7 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
         other => {
             if other.starts_with("/echo/") {
                 let response_body = other.replace("/echo/", "");
+                let mut content_length = response_body.len();
                 response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
 
                 if let Some(encodings) = request.headers().get("accept-encoding") {
@@ -56,15 +68,16 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
                         .split(", ")
                         .any(|encoding| encoding.eq_ignore_ascii_case("gzip"))
                     {
+                        compressed_body = handle_compression(&response_body)?;
+                        content_length = compressed_body.len();
+
+                        response.set_body(None);
                         response.set_headers("Content-Encoding".to_owned(), "gzip".to_owned());
                     }
                 }
 
                 response.set_headers("Content-Type".to_string(), "text/plain".to_owned());
-                response.set_headers(
-                    "Content-Length".to_string(),
-                    response_body.len().to_string(),
-                );
+                response.set_headers("Content-Length".to_string(), content_length.to_string());
             } else if other.starts_with("/files/") {
                 let file_base_path = env::args()
                     .collect::<Vec<_>>()
@@ -99,7 +112,9 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
             }
         }
     }
-    stream.write(response.http_string().as_bytes())?;
+    let mut response_bytes = response.http_string().as_bytes().to_owned();
+    response_bytes.extend_from_slice(&compressed_body);
+    stream.write_all(&response_bytes)?;
     stream.flush()?;
     Ok(())
 }
@@ -114,8 +129,11 @@ fn main() {
             Ok(mut _stream) => {
                 println!("accepted new connection");
                 let handle = std::thread::spawn(move || handle_connection(_stream));
-                if let Err(e) = handle.join() {
-                    println!("{:?}", e);
+
+                match handle.join() {
+                    Ok(Err(e)) => println!("error: {:?}", e),
+                    Err(e) => println!("error: {:?}", e),
+                    _ => (),
                 }
             }
             Err(e) => {
