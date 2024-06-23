@@ -50,6 +50,13 @@ fn handle_connection(mut stream: TcpStream) -> Result<(), ServerError> {
             if other.starts_with("/echo/") {
                 let response_body = other.replace("/echo/", "");
                 response = Response::new(HttpStatus::Ok, Some(response_body.clone()));
+
+                if let Some(encoding) = request.headers().get("accept-encoding") {
+                    if encoding == "gzip" {
+                        response.set_headers("Content-Encoding".to_owned(), encoding.to_owned())
+                    }
+                }
+
                 response.set_headers("Content-Type".to_string(), "text/plain".to_owned());
                 response.set_headers(
                     "Content-Length".to_string(),
