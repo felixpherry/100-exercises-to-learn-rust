@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+thiserror = "1.0.61"
 tokio = { version = "1", features = ["full"] }
+ticket_fields = { path = "../../../helpers/ticket_fields" }
